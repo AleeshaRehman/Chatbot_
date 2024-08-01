@@ -14,7 +14,6 @@ class Chat(models.Model):
     def __str__(self):
         return self.title
 
-
 class Message(models.Model):
     MESSAGE_FROM_CHOICES = [
         ('user', 'User'),
@@ -25,6 +24,9 @@ class Message(models.Model):
     text = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f'{self.sender}: {self.text[:50]}'
+
 class Prompt(models.Model):
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
     text = models.TextField()
@@ -33,3 +35,4 @@ class Response(models.Model):
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
     text = models.TextField()
     generated_at = models.DateTimeField(auto_now_add=True)
+
