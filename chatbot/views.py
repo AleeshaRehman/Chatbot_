@@ -4,8 +4,20 @@ from .models import Chat, Message, Prompt, Response
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 import json
-from datetime import datetime
 
+from .rag_chatbot import GPT2Chatbot
+from django.shortcuts import render, redirect
+from .forms import UserForm
+from django.contrib.auth import authenticate, login, logout
+
+
+
+from django.http import HttpResponse
+
+
+
+# Initialize the GPT chatbot
+gpt_chatbot = GPT2Chatbot()
 @csrf_exempt
 def new_chat(request):
     if request.method == 'POST':
@@ -24,6 +36,12 @@ def send_message(request):
             sender=data['sender'],
             text=data['text']
         )
+        
+        # Generate a response if the sender is the user
+        if data['sender'] == 'user':
+            response_text = gpt_chatbot.generate_response(data['text'])
+            Response.objects.create(chat=chat, text=response_text)
+        
         return JsonResponse({'message_id': message.id})
 
 def chat_history(request, chat_id):
@@ -56,3 +74,45 @@ def delete_message(request, message_id):
         message = get_object_or_404(Message, pk=message_id)
         message.delete()
         return JsonResponse({'status': 'success', 'message': 'Message deleted'})
+    
+
+
+def signup(request):
+    if request.user.is_authenticated:
+        return redirect("index")
+    form = UserForm()
+    if request.method == 'POST':
+        form = UserForm(request.POST)
+        if form.is_valid():
+            form.save()
+            username = request.POST["username"]
+            password = request.POST["password1"]
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                login(request, user)
+                return redirect("index")
+    context = {"form": form}
+    return render(request, "chatbot/signup.html", context)
+
+
+def signin(request):
+    err = None
+    if request.user.is_authenticated:
+        return redirect("index")
+    
+    if request.method == 'POST':
+        username = request.POST["username"]
+        password = request.POST["password"]
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            return redirect("index")
+        else:
+            err = "Invalid Credentials"
+    
+    context = {"error": err}
+    return render(request, "chatbot/signin.html", context)
+
+def signout(request):
+    logout(request)
+    return redirect("signin")
