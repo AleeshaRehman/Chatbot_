@@ -5,7 +5,7 @@ class GPT2Chatbot:
     def __init__(self):
         self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
         self.model = TFGPT2LMHeadModel.from_pretrained('gpt2')
-        self.tokenizer.pad_token = self.tokenizer.eos_token  # Set pad token to eos token
+        self.tokenizer.pad_token = self.tokenizer.eos_token  
 
     def generate_response(self, query):
         # Encode the input query
@@ -14,14 +14,14 @@ class GPT2Chatbot:
         # Generate a response using the GPT-2 model
         outputs = self.model.generate(
             inputs['input_ids'],
-            attention_mask=inputs['attention_mask'],  # Provide attention mask
-            max_length=150,                          # Increased max_length for longer responses
-            temperature=0.7,                        # Adjust temperature for creativity
-            top_k=50,                               # Adjust top_k to control output randomness
-            top_p=0.9,                              # Use nucleus sampling (top_p) for better diversity
-            eos_token_id=self.tokenizer.eos_token_id, # Use eos_token_id for stopping
-            do_sample=True,                         # Ensure sampling is enabled
-            no_repeat_ngram_size=2                  # Avoid repeating n-grams
+            attention_mask=inputs['attention_mask'], 
+            max_length=150,                          
+            temperature=0.7,                        
+            top_k=50,                              
+            top_p=0.9,                              
+            eos_token_id=self.tokenizer.eos_token_id, 
+            do_sample=True,                         
+            no_repeat_ngram_size=2                  
         )
         
         # Decode the generated response
@@ -31,9 +31,9 @@ class GPT2Chatbot:
 
     def clean_response(self, text):
         # Remove repetitive phrases
-        text = re.sub(r'\b(\w+)\s+\1\b', r'\1', text)  # Remove consecutive duplicate words
-        sentences = re.split(r'(?<=[.!?]) +', text)  # Split text into sentences
-        unique_sentences = list(dict.fromkeys(sentences))  # Remove duplicates while preserving order
+        text = re.sub(r'\b(\w+)\s+\1\b', r'\1', text)  
+        sentences = re.split(r'(?<=[.!?]) +', text)  
+        unique_sentences = list(dict.fromkeys(sentences)) 
         return ' '.join(unique_sentences).strip()
 
 # Instantiate the chatbot and test it
