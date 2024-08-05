@@ -21,6 +21,53 @@ from rest_framework import status
 from .serializers import UserSerializer
 from rest_framework.decorators import api_view, permission_classes
 
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+import json
+from mistralai.client import MistralClient
+from mistralai.models.chat_completion import ChatMessage
+from .models import Chat, Message, Response
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_message(request):
+    # Load the request body
+    data = json.loads(request.body)
+    
+    # Get the chat object or return 404 if not found
+    chat = get_object_or_404(Chat, pk=data['chat_id'])
+    
+    # Create a new message
+    message = Message.objects.create(
+        chat=chat,
+        sender=data['sender'],
+        text=data['text']
+    )
+    
+    if data['sender'] == 'user':
+        # Initialize the MistralClient
+        api_key = "your_mistral_api_key"  # Provide your API key here
+        model = "mistral-large-latest"
+
+        client = MistralClient(api_key=api_key)
+        
+        # Call Mistral API for a response
+        chat_response = client.chat(
+            model=model,
+            messages=[ChatMessage(role="user", content=data['text'])]
+        )
+        
+        response_text = chat_response.choices[0].message.content
+        
+        # Save the response in the Response model
+        Response.objects.create(chat=chat, text=response_text)
+    
+    # Return the ID of the created message
+    return JsonResponse({'message_id': message.id})
+
+
 #gpt_chatbot = GPT2Chatbot()
 
 from rest_framework.views import APIView
@@ -59,22 +106,7 @@ def new_chat(request):
     chat = Chat.objects.create(user=user, title=data.get('title', ''))
     return JsonResponse({'chat_id': chat.chat_id})
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def send_message(request):
-    data = json.loads(request.body)
-    chat = get_object_or_404(Chat, pk=data['chat_id'])
-    message = Message.objects.create(
-        chat=chat,
-        sender=data['sender'],
-        text=data['text']
-    )
-    
-    if data['sender'] == 'user':
-        response_text = gpt_chatbot.generate_response(data['text'])
-        Response.objects.create(chat=chat, text=response_text)
-    
-    return JsonResponse({'message_id': message.id})
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -105,3 +137,4 @@ def delete_message(request, message_id):
     message = get_object_or_404(Message, pk=message_id)
     message.delete()
     return JsonResponse({'status': 'success', 'message': 'Message deleted'})
+
