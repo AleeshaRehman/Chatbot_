@@ -47,7 +47,7 @@ import os
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 
-api_key = "q0JwvX2867ObPLk7S2qVhVbQOsyDhEg6"
+api_key = ""
 model = "mistral-large-latest"
 
 client = MistralClient(api_key=api_key)
