@@ -69,47 +69,57 @@ logger = logging.getLogger(__name__)
 def send_message(request):
     logger.info("Received request: %s", request)
     logger.info("Request Headers: %s", request.headers)
-    
+
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
         logger.error("Invalid JSON: %s", request.body)
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    chat = get_object_or_404(Chat, pk=data['chat_id'])
-    
+    chat_id = data.get('chat_id')
+    text = data.get('text')
+    sender = data.get('sender')
+
+    if not chat_id or not text or not sender:
+        return JsonResponse({'error': 'Required fields are missing'}, status=400)
+
+    chat = get_object_or_404(Chat, pk=chat_id)
+
     # Check if the same message already exists in the chat
-    if Message.objects.filter(chat=chat, text=data['text'], sender=data['sender']).exists():
+    if Message.objects.filter(chat=chat, text=text, sender=sender).exists():
         return JsonResponse({'error': 'Message already exists'}, status=400)
 
+    # Create the user message
     message = Message.objects.create(
         chat=chat,
-        sender=data['sender'],
-        text=data['text'],
+        sender=sender,
+        text=text,
         user=request.user
     )
 
     response_text = None
-    if data['sender'] == 'user':
+    if sender == 'user':
         try:
-            api_key = "your_mistral_api_key"
+            # Call Mistral API for response
+            api_key = ""
             model = "mistral-large-latest"
             client = MistralClient(api_key=api_key)
             chat_response = client.chat(
                 model=model,
-                messages=[ChatMessage(role="user", content=data['text'])]
+                messages=[ChatMessage(role="user", content=text)]
             )
             response_text = chat_response.choices[0].message.content
+            # Store the chatbot response
             Response.objects.create(chat=chat, text=response_text)
         except Exception as e:
             logger.error("Error with Mistral API: %s", e)
             return JsonResponse({'error': 'Error with Mistral API'}, status=500)
 
     return JsonResponse({
+        'message': 'Message sent',
         'message_id': message.id,
-        'response_text': response_text  
+        'response_text': response_text
     })
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -151,5 +161,23 @@ def delete_message(request, message_id):
     message = get_object_or_404(Message, pk=message_id)
     message.delete()
     return JsonResponse({'status': 'success', 'message': 'Message deleted'})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def logout(request):
+    try:
+        data = json.loads(request.body)
+        refresh_token = data.get('refresh_token')
+        if not refresh_token:
+            return JsonResponse({'error': 'No refresh token provided'}, status=400)
+
+        # Blacklist the refresh token
+        token = RefreshToken(refresh_token)
+        token.blacklist()  # This method requires django-rest-framework-simplejwt to be configured with blacklisting.
+
+        return JsonResponse({'message': 'Successfully logged out'}, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
 
